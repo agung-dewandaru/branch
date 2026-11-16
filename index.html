@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>Branch</title><link rel="stylesheet" href="style.css"><script src="keymap.js" defer></script><script src="app.js" defer></script></head>
+<body>
+<header><div class="brand"><span>✳</span> Branch</div><div id="document" title="Current map"></div>
+<nav aria-label="File actions"><button id="new">New</button><button id="open">Open</button><button id="save">Save</button><button id="pdf" class="dark">Export PDF ↗</button></nav></header>
+<main>
+<aside><h2>Map tools</h2>
+<button data-action="child">Add child <kbd>Cmd/Ctrl+Enter</kbd></button>
+<button data-action="sibling">Add sibling <kbd>Enter</kbd></button>
+<button data-action="rich">Add rich text <kbd>⇧ Enter</kbd></button>
+<button data-action="edit">Edit label <kbd>E</kbd></button>
+<button data-action="collapse">Collapse / expand <kbd>.</kbd></button>
+<button data-action="connect" id="connect">Connect nodes <kbd>C</kbd></button>
+<button data-action="attach" id="attach">Reattach <kbd>R</kbd></button>
+<button data-action="delete">Delete branch <kbd>Delete</kbd></button>
+<div class="divider"></div><h2>Node properties</h2>
+<div class="properties">
+<span id="tag-label">Color tag</span><div id="tags" role="group" aria-labelledby="tag-label"></div>
+<label for="font">Font family</label><select id="font"></select>
+<span id="font-size-label">Font size</span><div class="font-size" role="group" aria-labelledby="font-size-label">
+<button id="smaller" aria-label="Decrease font size">−</button><output id="font-size"></output><button id="larger" aria-label="Increase font size">+</button>
+</div>
+</div>
+<div class="divider"></div><h2>Layout</h2>
+<select id="layout" aria-label="Map layout"><option value="balanced">Balanced</option><option value="right">Left to right</option><option value="down">Top to bottom</option></select>
+<button id="relayout">Apply layout</button>
+<button id="fit">Fit to view <kbd id="fit-key">0</kbd></button>
+<div class="divider"></div><h2>Keyboard</h2>
+<p><kbd>↑ ↓ ← →</kbd> Select nodes</p><p><kbd>Shift</kbd> + arrows to move</p><p><kbd id="undo-key"></kbd> Undo</p><p><kbd id="find-key"></kbd> Find nodes</p>
+</aside>
+<section id="workspace" aria-label="Mind map">
+<div class="canvas-toolbar"><label class="search">⌕ <input id="search" type="search" placeholder="Find a node…" aria-label="Find a node"></label><span id="matches" aria-live="polite"></span><button id="prev" aria-label="Previous match">↑</button><button id="next" aria-label="Next match">↓</button></div>
+<div id="viewport"><div id="space"><div id="diagram" aria-label="Map nodes"><svg id="edges" aria-hidden="true"></svg></div></div></div>
+<div class="zoom"><button id="minus" aria-label="Zoom out">−</button><output id="zoom">100%</output><button id="plus" aria-label="Zoom in">+</button></div>
+</section></main>
+<footer><span id="status" role="status">Ready</span><span id="count"></span></footer>
+<dialog id="editor"><form method="dialog"><h2 id="editor-title">Node label</h2><label for="label">Name</label><input id="label" maxlength="120" required>
+<section id="rich-fields" hidden>
+<div id="formatting" role="toolbar" aria-label="Text formatting">
+<button type="button" data-format="bold" aria-label="Bold"><b>B</b></button>
+<button type="button" data-format="italic" aria-label="Italic"><i>I</i></button>
+<button type="button" data-format="underline" aria-label="Underline"><u>U</u></button>
+<button type="button" data-format="insertUnorderedList">Bullets</button>
+<button type="button" data-format="insertOrderedList">Numbered</button>
+<button type="button" data-format="removeFormat">Clear style</button>
+</div>
+<div id="rich-body" contenteditable="true" role="textbox" aria-label="Rich text" aria-multiline="true"></div>
+<p id="rich-error" role="alert"></p>
+</section><div><button value="ok" class="dark">Apply</button><button type="button" id="cancel-edit">Cancel</button></div></form></dialog>
+<dialog id="connector-editor"><form method="dialog">
+<h2>Connector caption</h2><label for="connector-caption">Caption (optional)</label>
+<input id="connector-caption" maxlength="120">
+<div><button value="connect" class="dark">Connect</button><button type="button" id="cancel-connector">Cancel</button></div>
+</form></dialog>
+<div id="save-toast" role="status" aria-live="polite"></div>
+</body></html>
