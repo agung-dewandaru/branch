@@ -1,15 +1,17 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
-<title>Branch</title><link rel="stylesheet" href="style.css"><script src="keymap.js" defer></script><script src="app.js" defer></script></head>
+<title>Branch</title><link rel="stylesheet" href="style.css"><script src="keymap.js" defer></script><script src="app.js" defer></script><script src="settings.js" defer></script></head>
 <body>
 <header><div class="brand"><span>✳</span> Branch</div><div id="document" title="Current map"></div>
-<nav aria-label="File actions"><button id="new">New</button><button id="open">Open</button><button id="save">Save</button><button id="pdf" class="dark">Export PDF ↗</button></nav></header>
+<nav aria-label="File actions"><button id="open-settings">Settings</button><button id="new">New</button><button id="open">Open</button><button id="save">Save</button><button id="save-as">Save As…</button><button id="pdf" class="dark">Export PDF ↗</button></nav></header>
 <main>
 <aside><h2>Map tools</h2>
 <button data-action="child">Add child <kbd>Cmd/Ctrl+Enter</kbd></button>
 <button data-action="sibling">Add sibling <kbd>Enter</kbd></button>
+<button data-action="symbol">Add symbol <kbd>⌘+Shift+Enter</kbd></button>
 <button data-action="rich">Add rich text <kbd>⇧ Enter</kbd></button>
+<button data-action="doodle" id="doodle">Doodle <kbd>D</kbd></button>
 <button data-action="edit">Edit label <kbd>E</kbd></button>
 <button data-action="collapse">Collapse / expand <kbd>.</kbd></button>
 <button data-action="connect" id="connect">Connect nodes <kbd>C</kbd></button>
@@ -32,12 +34,36 @@
 </aside>
 <section id="workspace" aria-label="Mind map">
 <div class="canvas-toolbar"><label class="search">⌕ <input id="search" type="search" placeholder="Find a node…" aria-label="Find a node"></label><span id="matches" aria-live="polite"></span><button id="prev" aria-label="Previous match">↑</button><button id="next" aria-label="Next match">↓</button></div>
-<div id="viewport"><div id="space"><div id="diagram" aria-label="Map nodes"><svg id="edges" aria-hidden="true"></svg></div></div></div>
+<div id="viewport"><div id="space"><div id="diagram" aria-label="Map nodes"><svg id="edges" aria-hidden="true"></svg><svg id="ink" aria-hidden="true"></svg></div></div></div>
+<div id="doodle-panel" role="group" aria-label="Doodle options" hidden>
+<label>Color <input id="ink-color" type="color" value="#bf4f73"></label>
+<label>Thickness <input id="ink-width" type="range" min="1" max="24" value="4"> <output id="ink-width-value">4 px</output></label>
+<button id="erase-doodle" aria-pressed="false">Eraser</button>
+<button id="finish-doodle">Done</button>
+</div>
 <div class="zoom"><button id="minus" aria-label="Zoom out">−</button><output id="zoom">100%</output><button id="plus" aria-label="Zoom in">+</button></div>
 </section></main>
 <footer><span id="status" role="status">Ready</span><span id="count"></span></footer>
-<dialog id="editor"><form method="dialog"><h2 id="editor-title">Node label</h2><label for="label">Name</label><input id="label" maxlength="120" required>
-<section id="rich-fields" hidden>
+<dialog id="editor"><form method="dialog"><h2 id="editor-title">Add child</h2>
+<div class="settings-tabs node-tabs" role="tablist" aria-label="Node type">
+<button type="button" role="tab" id="simple-node-tab" aria-controls="simple-fields">Simple</button>
+<button type="button" role="tab" id="rich-node-tab" aria-controls="rich-fields">Rich Text</button>
+<button type="button" role="tab" id="symbol-node-tab" aria-controls="symbol-fields">Symbol</button>
+<button type="button" role="tab" id="ai-node-tab" aria-controls="ai-fields"><span aria-hidden="true">❄︎</span> AI Generator</button>
+</div>
+<div id="node-name-field"><label for="label">Name</label><input id="label" maxlength="120" required></div>
+<section id="ai-fields" role="tabpanel" aria-labelledby="ai-node-tab" hidden>
+<label for="ai-topic">Topic</label><input id="ai-topic" maxlength="500" placeholder="Enter a topic">
+<p>Generates child nodes beneath the selected node, up to five levels deep. Only the topic is sent to OpenAI.</p>
+<p id="ai-replace-note" hidden>Applying replaces all existing children and their descendants. You can undo the replacement.</p>
+<p id="ai-note" role="status"></p>
+</section>
+<section id="simple-fields" role="tabpanel" aria-labelledby="simple-node-tab"></section>
+<section id="symbol-fields" role="tabpanel" aria-labelledby="symbol-node-tab" hidden>
+<fieldset><legend>Symbol</legend><label for="symbol-search">Find a symbol</label><input id="symbol-search" type="search" placeholder="Search symbols"><div id="symbol-options"></div><p id="symbol-empty" role="status" hidden>No matching symbols.</p></fieldset>
+<label for="symbol-color">Symbol color</label><select id="symbol-color"></select>
+</section>
+<section id="rich-fields" role="tabpanel" aria-labelledby="rich-node-tab" hidden>
 <div id="formatting" role="toolbar" aria-label="Text formatting">
 <button type="button" data-format="bold" aria-label="Bold"><b>B</b></button>
 <button type="button" data-format="italic" aria-label="Italic"><i>I</i></button>
@@ -48,11 +74,39 @@
 </div>
 <div id="rich-body" contenteditable="true" role="textbox" aria-label="Rich text" aria-multiline="true"></div>
 <p id="rich-error" role="alert"></p>
-</section><div><button value="ok" class="dark">Apply</button><button type="button" id="cancel-edit">Cancel</button></div></form></dialog>
+</section><div><button id="apply-node" value="ok" class="dark">Apply</button><button type="button" id="cancel-edit">Cancel</button></div></form><p id="ai-progress" role="status" hidden>Generating child nodes…</p></dialog>
 <dialog id="connector-editor"><form method="dialog">
 <h2>Connector caption</h2><label for="connector-caption">Caption (optional)</label>
 <input id="connector-caption" maxlength="120">
 <div><button value="connect" class="dark">Connect</button><button type="button" id="cancel-connector">Cancel</button></div>
 </form></dialog>
 <div id="save-toast" role="status" aria-live="polite"></div>
+<dialog id="settings" aria-labelledby="settings-title">
+<h2 id="settings-title">Settings</h2>
+<div class="settings-tabs" role="tablist" aria-label="Settings sections">
+<button type="button" role="tab" id="keyboard-tab" aria-controls="keyboard-panel">Keyboard Preferences</button>
+<button type="button" role="tab" id="appearance-tab" aria-controls="appearance-panel">Appearance</button>
+<button type="button" role="tab" id="ai-settings-tab" aria-controls="ai-settings-panel">AI</button>
+</div>
+<section id="keyboard-panel" role="tabpanel" aria-labelledby="keyboard-tab">
+<p>Choose an action, then press the shortcut you want to use.</p>
+<div id="shortcut-list"></div>
+</section>
+<section id="appearance-panel" role="tabpanel" aria-labelledby="appearance-tab" hidden>
+<label class="appearance-option" for="night-mode">
+<span>Night mode</span><input type="checkbox" id="night-mode" role="switch">
+</label>
+</section>
+<section id="ai-settings-panel" role="tabpanel" aria-labelledby="ai-settings-tab" hidden>
+<label for="ai-key">OpenAI API key</label><input id="ai-key" type="password" maxlength="512" autocomplete="off" spellcheck="false">
+<p id="ai-key-status" role="status"></p>
+<div class="ai-key-actions"><button id="remove-ai-key">Remove key</button><button id="save-ai-key" class="dark">Save key</button></div>
+</section>
+<p id="settings-message" role="status"></p>
+<div class="settings-actions">
+<button id="reset-shortcuts">Restore defaults</button>
+<button id="close-settings">Cancel</button>
+<button id="save-settings" class="dark">Save settings</button>
+</div>
+</dialog>
 </body></html>
