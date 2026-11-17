@@ -158,6 +158,10 @@ function sanitizeRich(markup) {
       } else if (child.nodeType === Node.ELEMENT_NODE && !['SCRIPT', 'STYLE', 'TEMPLATE'].includes(child.tagName)) {
         if (allowedMarkup.has(child.tagName)) {
           const element = document.createElement(child.tagName);
+          if (['DIV', 'P', 'LI'].includes(child.tagName)) {
+            const alignment = child.style.textAlign || child.getAttribute('align');
+            if (['left', 'right', 'justify'].includes(alignment)) element.style.textAlign = alignment;
+          }
           copy(child, element);
           target.append(element);
         } else copy(child, target);
@@ -233,7 +237,7 @@ function restore(from, to) {
   reveal();
 }
 
-const nodeTypes = ['simple', 'rich', 'symbol'];
+const nodeTypes = ['simple', 'rich', 'symbol', 'image'];
 function nodeType(item) {
   return item.type ?? (item.rich !== undefined ? 'rich' : item.symbol !== undefined ? 'symbol' : 'simple');
 }
@@ -252,7 +256,17 @@ function nodeElement(item, color) {
   element.style.setProperty('--border', border);
   element.style.setProperty('--node-font', fonts[item.font ?? 'default'][1]);
   element.style.setProperty('--node-size', (item.fontSize ?? 14) + 'px');
-  if (type === 'symbol') {
+  if (type === 'image') {
+    element.classList.add('image-node');
+    const picture = document.createElement('img');
+    picture.src = item.image.data;
+    picture.width = item.image.width;
+    picture.height = item.image.height;
+    picture.alt = '';
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    element.append(picture, label);
+  } else if (type === 'symbol') {
     const line = document.createElement('span');
     line.className = 'symbol-line';
     const icon = document.createElement('span');
@@ -293,7 +307,7 @@ function geometry() {
   for (const item of visible) visible.push(...visibleChildren(item));
   const elements = visible.map((item) => {
     const element = nodeElement(item, 0);
-    const w = nodeType(item) === 'rich' ? 260 : item.parent === null ? 180 : 156;
+    const w = nodeType(item) === 'image' ? 226 : nodeType(item) === 'rich' ? 260 : item.parent === null ? 180 : 156;
     element.classList.add('node-measure');
     element.style.width = w + 'px';
     return { item, element, w };
@@ -457,24 +471,28 @@ function updateProperties() {
   $('smaller').disabled = size <= minFont;
   $('larger').disabled = size >= maxFont;
 }
-function setProperty(key, value) {
-  const item = current();
+function setProperty(key, value, includeDescendants = false) {
+  const affected = includeDescendants ? descendants(selected) : new Set([selected]);
+  const items = map.nodes.filter(({ id }) => affected.has(id));
   const fallback = key === 'fontSize' ? 14 : 'default';
-  if ((item[key] ?? fallback) === value) return reveal();
+  if (items.every((item) => (item[key] ?? fallback) === value)) return reveal();
   commit(() => {
-    if (value === 'default' || (key === 'fontSize' && value === 14)) delete item[key];
-    else item[key] = value;
+    for (const item of items) {
+      if (value === 'default' || (key === 'fontSize' && value === 14)) delete item[key];
+      else item[key] = value;
+    }
   });
   reveal();
 }
 for (const [key, [name, fill, border]] of Object.entries(tags)) {
   const button = document.createElement('button');
   button.dataset.tag = key;
-  button.title = name;
+  button.title = name + ' · ' + modifier + '-click to color this branch';
+  button.dataset.colorName = name;
   button.setAttribute('aria-label', name);
   button.style.setProperty('--swatch', fill);
   button.style.setProperty('--swatch-border', border);
-  button.onclick = () => setProperty('tag', key);
+  button.onclick = (event) => setProperty('tag', key, mac ? event.metaKey : event.ctrlKey);
   $('tags').append(button);
 }
 for (const [key, [name]] of Object.entries(fonts)) $('font').add(new Option(name, key));
@@ -495,7 +513,23 @@ function highlight() {
 }
 function updateSearch(reset = false) {
   const query = $('search').value.trim().toLocaleLowerCase();
-  matches = query ? map.nodes.filter(({ id }) => positions.has(id)).filter((item) => (item.label + (nodeType(item) === 'rich' ? ' ' + plainText(item.rich ?? '') : '')).toLocaleLowerCase().includes(query)).map(({ id }) => id) : [];
+  const colorQuery = query.startsWith(':') ? query.slice(1).trim() : null;
+  const colorKey = colorQuery === null ? undefined : Object.keys(tags).find((key) =>
+    key === colorQuery || tags[key][0].toLocaleLowerCase() === colorQuery
+  );
+  matches = query ? map.nodes.filter(({ id }) => positions.has(id)).filter((item) => {
+    if (colorQuery !== null) {
+      if (colorKey === undefined) return false;
+      if (colorKey === 'default') return !item.tag || item.tag === 'default';
+      const automaticColors = ['green', 'amber', 'violet', 'rose'];
+      const branchColor = positions.get(item.id)?.color;
+      const displayedColor = item.tag && item.tag !== 'default'
+        ? item.tag
+        : branchColor >= 0 ? automaticColors[branchColor] : undefined;
+      return displayedColor === colorKey;
+    }
+    return (item.label + (nodeType(item) === 'rich' ? ' ' + plainText(item.rich ?? '') : '')).toLocaleLowerCase().includes(query);
+  }).map(({ id }) => id) : [];
   if (reset) matchIndex = -1;
   else matchIndex = matches.indexOf(selected);
   $('matches').textContent = !query ? '' : matchIndex < 0 ? String(matches.length) : `${matchIndex + 1}/${matches.length}`;
@@ -521,6 +555,80 @@ function fit() {
   scale = Math.min(1.2, Math.max(0.01, Math.min(($('viewport').clientWidth - 38) / width, ($('viewport').clientHeight - 112) / height)));
   sizeDiagram();
   $('viewport').scrollTo(width * scale / 2, height * scale / 2);
+}
+const imageByteLimit = 50000;
+let imageDraft;
+let imageLoading = false;
+let imageRequest = 0;
+function showImageDraft() {
+  $('image-preview').hidden = !imageDraft;
+  if (imageDraft) $('image-preview').src = imageDraft.data;
+  else $('image-preview').removeAttribute('src');
+}
+async function prepareImage(file) {
+  const request = ++imageRequest;
+  imageLoading = true;
+  $('image-message').textContent = 'Preparing image…';
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    const ratio = Math.min(1, 200 / bitmap.width, 200 / bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.floor(bitmap.width * ratio));
+    canvas.height = Math.max(1, Math.floor(bitmap.height * ratio));
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    let blob;
+    for (const quality of [0.9, 0.75, 0.55, 0.35, 0.15]) {
+      blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+      if (blob && blob.size <= imageByteLimit) break;
+    }
+    if (!blob || blob.size > imageByteLimit) throw Error('Could not compress this image.');
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(Error('Could not read this image.'));
+      reader.readAsDataURL(blob);
+    });
+    if (request !== imageRequest) return;
+    imageDraft = { data, width: canvas.width, height: canvas.height };
+    showImageDraft();
+    $('image-message').textContent = canvas.width + ' × ' + canvas.height + ' pixels · ' + (blob.size / 1000).toFixed(1) + ' KB';
+  } catch {
+    if (request === imageRequest) $('image-message').textContent = 'Could not load this image. Choose a PNG, JPEG, WebP, GIF, or BMP file.';
+  } finally {
+    bitmap?.close();
+    if (request === imageRequest) imageLoading = false;
+  }
+}
+$('image-file').onchange = () => {
+  const file = $('image-file').files[0];
+  if (file) prepareImage(file);
+};
+$('image-drop').onkeydown = (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    $('image-file').click();
+  }
+};
+for (const name of ['dragover', 'drop']) $('image-drop').addEventListener(name, (event) => {
+  event.preventDefault();
+  if (name === 'drop' && event.dataTransfer.files[0]) prepareImage(event.dataTransfer.files[0]);
+});
+$('editor').addEventListener('paste', (event) => {
+  if (editorType !== 'image' || event.target.matches('input:not([type="file"]), textarea, [contenteditable]')) return;
+  const items = Array.from(event.clipboardData?.items ?? []);
+  const image = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+  if (!image) return;
+  event.preventDefault();
+  prepareImage(image);
+});
+function validImage(image) {
+  if (!image || !Number.isInteger(image.width) || !Number.isInteger(image.height) ||
+      image.width < 1 || image.width > 200 || image.height < 1 || image.height > 200 ||
+      typeof image.data !== 'string') return false;
+  const match = /^data:image\/(?:webp|png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(image.data);
+  if (!match || match[1].length % 4) return false;
+  return match[1].length / 4 * 3 - (match[1].endsWith('==') ? 2 : match[1].endsWith('=') ? 1 : 0) <= imageByteLimit;
 }
 const editorTypes = [...nodeTypes, 'ai'];
 let editorType = 'simple';
@@ -623,6 +731,12 @@ function edit(kind) {
   const existing = current();
   if (kind !== 'edit' && map.nodes.length >= 500) return status('This map has reached the 500-node limit.');
   const editing = kind === 'edit';
+  imageRequest++;
+  imageLoading = false;
+  imageDraft = editing ? existing.image : undefined;
+  $('image-file').value = '';
+  $('image-message').textContent = '';
+  showImageDraft();
   $('ai-node-tab').hidden = kind === 'sibling';
   const replaceChildren = editing || existing.aiTopic !== undefined;
   $('ai-topic').value = existing.aiTopic ?? (editing ? existing.label : '');
@@ -651,6 +765,11 @@ function edit(kind) {
       if (aiConfigured) generateChildren(existing, dialog, replaceChildren);
       return;
     }
+    if (imageLoading || (editorType === 'image' && !imageDraft)) {
+      selectEditorType('image');
+      $('image-message').textContent = imageLoading ? 'Wait for the image to finish preparing.' : 'Choose an image first.';
+      return;
+    }
     const label = $('label').value.trim();
     if (!label) { $('label').focus(); return; }
     const body = sanitizeRich($('rich-body').innerHTML);
@@ -667,11 +786,12 @@ function edit(kind) {
     const applyFields = (item) => {
       item.label = label;
       item.type = editorType;
+      if (imageDraft) item.image = imageDraft;
       if (editorType === 'rich' || bodyChanged) item.rich = body;
       if (editorType === 'symbol' || symbolChanged) Object.assign(item, { symbol, symbolColor });
     };
     dialog.close();
-    if (!editing || label !== existing.label || editorType !== initialType || bodyChanged || symbolChanged) {
+    if (!editing || label !== existing.label || editorType !== initialType || bodyChanged || symbolChanged || imageDraft !== existing.image) {
       commit(() => {
         if (editing) {
           applyFields(existing);
@@ -762,7 +882,28 @@ function removeNodes(removed) {
     if (!map.connectors.length) delete map.connectors;
   }
 }
+function collapseToLevel(level) {
+  const depths = new Map([[map.nodes[0].id, 1]]);
+  const queue = [map.nodes[0]];
+  for (const item of queue) {
+    const depth = depths.get(item.id);
+    for (const child of children(item.id)) {
+      depths.set(child.id, depth + 1);
+      queue.push(child);
+    }
+  }
+  commit(() => {
+    for (const item of map.nodes) {
+      if (depths.get(item.id) >= level && children(item.id).length) item.collapsed = true;
+      else delete item.collapsed;
+    }
+    while (depths.get(selected) > level) selected = current().parent;
+  });
+  reveal();
+  status('Showing ' + level + (level === 1 ? ' level.' : ' levels.'));
+}
 function act(action) {
+  if (['level1', 'level2', 'level3'].includes(action)) return collapseToLevel(Number(action.at(-1)));
   if (action === 'doodle') return toggleDoodle(!doodling);
   if (action === 'collapse') {
     const item = current();
@@ -852,6 +993,8 @@ function parse(content) {
     (item.tag === undefined || Object.hasOwn(tags, item.tag)) &&
     (item.font === undefined || Object.hasOwn(fonts, item.font)) &&
     (item.fontSize === undefined || (Number.isInteger(item.fontSize) && item.fontSize >= minFont && item.fontSize <= maxFont)) &&
+    (item.image === undefined || validImage(item.image)) &&
+    (nodeType(item) !== 'image' || item.image !== undefined) &&
     (item.type === undefined || nodeTypes.includes(item.type)) &&
     (nodeType(item) !== 'symbol' || item.symbol !== undefined) &&
     (item.symbol === undefined || (typeof item.symbol === 'string' && Object.hasOwn(symbols, item.symbol))) &&
@@ -861,8 +1004,8 @@ function parse(content) {
       !data.nodes.length || data.nodes.length > 500 || !data.nodes.every(validNode) || data.nodes[0].parent !== null) {
     throw new Error('This file is not a supported Branch map.');
   }
-  const nodes = data.nodes.map(({ id, parent, label, dx, dy, tag, font, fontSize, rich, collapsed, symbol, symbolColor, type, aiTopic }) => ({
-    id, parent, label, dx, dy, tag, font, fontSize, type, aiTopic, symbol, symbolColor, collapsed: collapsed || undefined, rich: rich === undefined ? undefined : sanitizeRich(rich)
+  const nodes = data.nodes.map(({ id, parent, label, dx, dy, tag, font, fontSize, rich, collapsed, symbol, symbolColor, type, aiTopic, image }) => ({
+    id, parent, label, dx, dy, tag, font, fontSize, type, aiTopic, image, symbol, symbolColor, collapsed: collapsed || undefined, rich: rich === undefined ? undefined : sanitizeRich(rich)
   }));
   if (nodes.some(({ rich }) => rich?.length > richLimit)) throw new Error('A rich-text node exceeds the size limit.');
   const byId = new Map(nodes.map((item) => [item.id, item]));
@@ -1280,7 +1423,7 @@ document.addEventListener('keydown', (event) => {
     if (!event.repeat) finishConnector();
     return;
   }
-  const action = ['child', 'sibling', 'rich', 'edit', 'delete', 'attach', 'connect', 'collapse', 'symbol', 'doodle'].find(is);
+  const action = ['child', 'sibling', 'rich', 'edit', 'delete', 'attach', 'connect', 'collapse', 'symbol', 'doodle', 'level1', 'level2', 'level3'].find(is);
   if (action) {
     event.preventDefault();
     if (!event.repeat) act(action);

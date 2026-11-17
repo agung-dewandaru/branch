@@ -1,5 +1,6 @@
 const shortcutNames = {
   child: 'Add child', sibling: 'Add sibling', rich: 'Add rich text', symbol: 'Add symbol node', edit: 'Edit node',
+  level1: 'Show root level', level2: 'Show through children', level3: 'Show through grandchildren',
   doodle: 'Doodle', collapse: 'Collapse or expand', connect: 'Connect nodes', attach: 'Reattach',
   delete: 'Delete branch', fit: 'Fit to view', find: 'Find nodes', undo: 'Undo',
   redo: 'Redo', save: 'Save map', saveAs: 'Save as', open: 'Open map', new: 'New map'

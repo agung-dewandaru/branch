@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
-<title>Branch</title><link rel="stylesheet" href="style.css"><script src="keymap.js" defer></script><script src="app.js" defer></script><script src="settings.js" defer></script></head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'">
+<title>Branch3</title><link rel="stylesheet" href="style.css"><script src="keymap.js" defer></script><script src="app.js" defer></script><script src="settings.js" defer></script></head>
 <body>
-<header><div class="brand"><span>✳</span> Branch</div><div id="document" title="Current map"></div>
+<header><div class="brand"><img class="brand-icon" src="tree.svg" alt=""> Branch3</div><div id="document" title="Current map"></div>
 <nav aria-label="File actions"><button id="open-settings">Settings</button><button id="new">New</button><button id="open">Open</button><button id="save">Save</button><button id="save-as">Save As…</button><button id="pdf" class="dark">Export PDF ↗</button></nav></header>
 <main>
 <aside><h2>Map tools</h2>
@@ -33,7 +33,7 @@
 <p><kbd>↑ ↓ ← →</kbd> Select nodes</p><p><kbd>Shift</kbd> + arrows to move</p><p><kbd id="undo-key"></kbd> Undo</p><p><kbd id="find-key"></kbd> Find nodes</p>
 </aside>
 <section id="workspace" aria-label="Mind map">
-<div class="canvas-toolbar"><label class="search">⌕ <input id="search" type="search" placeholder="Find a node…" aria-label="Find a node"></label><span id="matches" aria-live="polite"></span><button id="prev" aria-label="Previous match">↑</button><button id="next" aria-label="Next match">↓</button></div>
+<div class="canvas-toolbar"><label class="search">⌕ <input id="search" type="search" placeholder="Find text or :color…" aria-label="Find a node by text or color, for example :amber"></label><span id="matches" aria-live="polite"></span><button id="prev" aria-label="Previous match">↑</button><button id="next" aria-label="Next match">↓</button></div>
 <div id="viewport"><div id="space"><div id="diagram" aria-label="Map nodes"><svg id="edges" aria-hidden="true"></svg><svg id="ink" aria-hidden="true"></svg></div></div></div>
 <div id="doodle-panel" role="group" aria-label="Doodle options" hidden>
 <label>Color <input id="ink-color" type="color" value="#bf4f73"></label>
@@ -49,6 +49,7 @@
 <button type="button" role="tab" id="simple-node-tab" aria-controls="simple-fields">Simple</button>
 <button type="button" role="tab" id="rich-node-tab" aria-controls="rich-fields">Rich Text</button>
 <button type="button" role="tab" id="symbol-node-tab" aria-controls="symbol-fields">Symbol</button>
+<button type="button" role="tab" id="image-node-tab" aria-controls="image-fields">Image</button>
 <button type="button" role="tab" id="ai-node-tab" aria-controls="ai-fields"><span aria-hidden="true">❄︎</span> AI Generator</button>
 </div>
 <div id="node-name-field"><label for="label">Name</label><input id="label" maxlength="120" required></div>
@@ -57,6 +58,12 @@
 <p>Generates child nodes beneath the selected node, up to five levels deep. Only the topic is sent to OpenAI.</p>
 <p id="ai-replace-note" hidden>Applying replaces all existing children and their descendants. You can undo the replacement.</p>
 <p id="ai-note" role="status"></p>
+</section>
+<section id="image-fields" role="tabpanel" aria-labelledby="image-node-tab" hidden>
+<label id="image-drop" for="image-file" tabindex="0">Drop an image here, paste with ⌘/Ctrl + V, or choose a file
+<input id="image-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp">
+<img id="image-preview" alt="Selected image" hidden>
+</label><p>Images are fitted within 200 × 200 pixels and 50 KB.</p><p id="image-message" role="status"></p>
 </section>
 <section id="simple-fields" role="tabpanel" aria-labelledby="simple-node-tab"></section>
 <section id="symbol-fields" role="tabpanel" aria-labelledby="symbol-node-tab" hidden>
@@ -70,6 +77,9 @@
 <button type="button" data-format="underline" aria-label="Underline"><u>U</u></button>
 <button type="button" data-format="insertUnorderedList">Bullets</button>
 <button type="button" data-format="insertOrderedList">Numbered</button>
+<button type="button" data-format="justifyLeft" aria-label="Align left">Left</button>
+<button type="button" data-format="justifyRight" aria-label="Align right">Right</button>
+<button type="button" data-format="justifyFull" aria-label="Justify text">Justify</button>
 <button type="button" data-format="removeFormat">Clear style</button>
 </div>
 <div id="rich-body" contenteditable="true" role="textbox" aria-label="Rich text" aria-multiline="true"></div>

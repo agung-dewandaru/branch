@@ -1,4 +1,4 @@
-# Branch
+# Branch3
 
 Branch is an Electron desktop mind mapper. It opens with an editable sample map. Use **New** to start with a single central node.
 
@@ -33,6 +33,9 @@ npm start
 | Reattach a branch | R, select the new parent, then R or Enter |
 | Connect or disconnect two nodes | C, select the destination, then Enter |
 | Collapse or expand children | . (period) |
+| Show root only | 1 |
+| Show root and children | 2 |
+| Show root, children, and grandchildren | 3 |
 | Cancel reattachment or connector selection | Esc |
 | Delete a branch | Delete or Backspace |
 | Find nodes | Cmd/Ctrl + F, then Enter or Shift + Enter to cycle |
@@ -72,6 +75,8 @@ See [Branch file format](BRANCH-FORMAT.md) for the JSON structure, examples, and
 
 ## Change log
 
+Latest update — November 18, 2026. Iterations 28–35 add rich-text alignment controls, embedded image nodes and clipboard pasting, Branch3 branding, branch coloring, color searches, and level shortcuts. Color searches now include automatic branch colors.
+
 The numbers below identify development iterations in chronological order. The package version is currently `1.0.0`.
 
 | Iteration | Changes |
@@ -103,3 +108,11 @@ The numbers below identify development iterations in chronological order. The pa
 | 25. AI Generator in Edit node | Generate descendants from the selected node’s name. Added a snowflake icon to the generator tab. |
 | 26. Editable AI topics | Saved AI topics on nodes and made regeneration replace existing descendants in an undoable operation. |
 | 27. File format reference | Documented the version 1 `.branch` JSON structure in [BRANCH-FORMAT.md](BRANCH-FORMAT.md), including a complete example, validation limits, and the saved AI topic field. |
+| 28. Rich-text alignment | Fixed right-aligned new lines and added Left, Right, and Justify controls with saved paragraph alignment. |
+| 29. Image nodes | Added an Image tab with drag-and-drop, resizing to 200 × 200 pixels and 50 KB, and embedded image storage. |
+| 30. Paste images | Added clipboard image pasting in the Image tab using Cmd/Ctrl + V. |
+| 31. Branch3 branding | Renamed the app and added a tree icon in the header and Mac application bundle. |
+| 32. Branch color palette | Added color-name hover labels and Cmd-click (Ctrl-click on Windows/Linux) to color the node and all descendants in one undoable operation. |
+| 33. Find by color | Added colon-prefixed color searches such as `:amber` and `:sage` to highlight visible nodes with that color tag. |
+| 34. Level shortcuts | Added 1, 2, and 3 to collapse the map to the corresponding visible depth, with undo and configurable shortcuts. |
+| 35. Color search fix | Included automatic branch colors in color searches, so `:sage` also finds automatically sage-colored nodes. |

@@ -1,6 +1,6 @@
 # Branch file format
 
-A `.branch` file is a UTF-8 JSON document containing one mind map. The current format version is the integer `1`, independent of the app's package version. Branch opens files up to 4,000,000 bytes.
+A `.branch` file is a UTF-8 JSON document containing one mind map. The current format version is the integer `1`, independent of the app's package version. Branch opens files up to 40,000,000 bytes.
 
 ## Complete example
 
@@ -69,7 +69,8 @@ A `.branch` file is a UTF-8 JSON document containing one mind map. The current f
 | `parent` | Yes | `null` for the root. Every other node references its parent's ID. Following parents must reach the root without cycles. |
 | `label` | Yes | Node name, up to 120 UTF-16 code units and nonempty after trimming. |
 | `dx`, `dy` | Yes | Finite horizontal and vertical offsets from the automatic layout, each from −10,000 to 10,000. Positive offsets move right and down. Descendants inherit ancestor offsets. |
-| `type` | No | Active display type. One of `simple`, `rich`, or `symbol`. |
+| `type` | No | Active display type. One of `simple`, `rich`, `symbol`, or `image`. |
+| `image` | For active image nodes | Object with `data` as a base64 PNG, JPEG, or WebP data URL, and integer `width` and `height` from 1 to 200. Decoded image payload is at most 50,000 bytes. Retained across type changes. |
 | `rich` | No | Rich-text body as an HTML fragment, up to 3,000 UTF-16 code units before and after sanitization. An empty body is allowed. |
 | `symbol` | For active symbol nodes | Symbol catalog ID, such as `star`, `check`, or `target`. The full list is defined by `symbols` in [app.js](app.js). |
 | `symbolColor` | No | Requires a `symbol`. IDs are `default`, `green`, `blue`, `amber`, `rose`, `violet`, `teal`, or `gray`. Omit for automatic color. |
@@ -81,7 +82,7 @@ A `.branch` file is a UTF-8 JSON document containing one mind map. The current f
 
 For older maps without `type`, Branch infers `rich` if `rich` is present, then `symbol` if `symbol` is present, and otherwise `simple`. Include an explicit `type` when storing fields for multiple types. A node can retain both its rich-text body and symbol settings while displaying only its active type.
 
-Branch sanitizes rich text when loading. It keeps `b`, `strong`, `i`, `em`, `u`, `br`, `div`, `p`, `ul`, `ol`, and `li` elements and strips their attributes. Script, style, and template contents are discarded.
+Branch sanitizes rich text when loading. It keeps `b`, `strong`, `i`, `em`, `u`, `br`, `div`, `p`, `ul`, `ol`, and `li` elements. It preserves only left, right, and justify text alignment on div, p, and li elements and strips other attributes. Script, style, and template contents are discarded.
 
 ## Connectors
 

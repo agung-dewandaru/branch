@@ -5,7 +5,7 @@ const path = require('node:path');
 function createWindow() {
   const window = new BrowserWindow({
     width: 1280, height: 850, minWidth: 760, minHeight: 520,
-    backgroundColor: '#f9f8f4', title: 'Branch',
+    backgroundColor: '#f9f8f4', title: 'Branch3',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true }
   });
   window.webContents.on('will-prevent-unload', (event) => {
@@ -22,7 +22,7 @@ const recentFile = () => path.join(app.getPath('userData'), 'last-map.json');
 
 async function readMap(file) {
   const info = await fs.stat(file);
-  if (!info.isFile() || info.size > 4_000_000) throw new Error('Choose a map file under 4 MB.');
+  if (!info.isFile() || info.size > 40_000_000) throw new Error('Choose a map file under 40 MB.');
   return { file, content: await fs.readFile(file, 'utf8') };
 }
 
